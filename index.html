@@ -3,36 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>建築結構影像分析儀</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>Architectural AI Vision</title>
     <style>
-        /* --- 全局設定與背景主題 --- */
         :root {
-            --blueprint-bg: #0a192f; /* 深藍圖色 */
-            --blueprint-line: rgba(100, 255, 218, 0.1); /* 淺青色線條 */
-            --concrete: #e6ecefa2; /* 混凝土質感 */
-            --accent-yellow: #ffd700; /* 工程黃 */
-            --accent-cyan: #64ffda; /* 科技青 */
-            --text-primary: #ccd6f6;
-            --text-dark: #0a192f;
+            --bg-color: #0a192f;        /* 建築深藍底色 */
+            --accent-color: #64ffda;   /* 藍圖亮青色 */
+            --grid-color: rgba(100, 255, 218, 0.05);
+            --border-color: rgba(100, 255, 218, 0.3);
+            --text-color: #ccd6f6;
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Montserrat', sans-serif;
-            background-color: var(--blueprint-bg);
-            /* 建立藍圖網格背景 */
+            background-color: var(--bg-color);
+            /* 建立建築網格背景 */
             background-image: 
-                linear-gradient(var(--blueprint-line) 1px, transparent 1px),
-                linear-gradient(90deg, var(--blueprint-line) 1px, transparent 1px);
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 30px 30px;
-            color: var(--text-primary);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            box-sizing: border-box;
+            margin: 0;
         }
 
-        /* --- 主容器：儀表板外殼
+        .container {
+            width: 90%;
+            max-width: 800px;
+            border: 1px solid var(--border-color);
+            padding: 40px;
+            background: rgba(10, 25, 47, 0.8);
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* 建築標註風格的角落裝飾 */
+        .container::before, .container::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--accent-color);
+        }
+        .container::before { top: -5px; left: -5px; border-right: none; border-bottom: none; }
+        .container::after { bottom: -5px; right: -5px; border-left: none; border-top: none; }
+
+        h1 {
+            font-size: 1.2rem;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--border-color);
+            display: inline-block;
+            padding-bottom: 5px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        /* 攝影機容器：帶有掃描線 */
+        #webcam-container {
+            position: relative;
+            border: 1px solid var(--border-color);
+            background: #000;
+            overflow: hidden;
+            width: 300px;
+            height: 300px;
+        }
+
+        #webcam-container canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+            top: 0;
+            z-index: 10;
+            animation: scanning 3s linear infinite;
+        }
+
+        @keyframes scanning {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        /* 標籤容器樣式 */
+        #label-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .label-row {
+            margin-bottom: 20px;
+        }
+
+        .label-name {
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+            display: block;
+            text-transform: uppercase;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 10px 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background: rgba(100, 255, 218, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Vision Analysis System v1.0</h1>
+    <br>
+    <button type="button" onclick="init()">Initialize System</button>
+    
+    <div class="main-layout">
+        <div id="webcam-container">
+            <div class="scan-line"></div>
+        </div>
+        <div id="label-container">
+            </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    const URL = "./my_model/"; // 記得更換成您的模型路徑
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        const flip = true; 
+        webcam = new tmImage.Webcam(300, 300, flip); 
+        await webcam.setup(); 
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        
+        // 初始化標籤條
+        labelContainer.innerHTML = '';
+        for (let i = 0; i < maxPredictions; i++) {
+            const row = document.createElement("div");
+            row.className = "label-row";
+            row.innerHTML = `
+                <span class="label-name" id="name-${i}">Loading...</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="fill-${i}"></div>
+                </div>
+            `;
+            labelContainer.appendChild(row);
+        }
+    }
+
+    async function loop() {
+        webcam.update(); 
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction = prediction[i].className;
+            const prob = (prediction[i].probability * 100).toFixed(0);
+            
+            document.getElementById(`name-${i}`).innerText = `${classPrediction} - ${prob}%`;
+            document.getElementById(`fill-${i}`).style.width = prob + "%";
+        }
+    }
+</script>
+
+</body>
+</html>
